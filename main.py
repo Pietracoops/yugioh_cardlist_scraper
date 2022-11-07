@@ -16,6 +16,8 @@ URL = "https://www.db.yugioh-card.com/yugiohdb/card_list.action"
 page = requests.get(URL)
 soup = BeautifulSoup(page.content, "html.parser")
 
+pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
+
 # Initialization
 list_of_cards = []
 count = 0
