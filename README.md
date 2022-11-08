@@ -11,6 +11,8 @@ pip install -r requirements.txt
 
 ## Running
 
+![](./img/progress_bar.PNG)
+
 Running the script is as simple as launching the entry point `main.py` with no arguments. An output folder will be created with a CSV file for each pack. A picture can be seen below of the output.
 
 ![](./img/csv_files.PNG)
