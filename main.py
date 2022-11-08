@@ -1,7 +1,7 @@
 import os
 import pathlib
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 import card_structure
 import helpers
 import copy
@@ -113,7 +113,12 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
             if len(card_text[0].contents) > 1 and ("Fusion" in tmp_card.type or "Synchro" in tmp_card.type
                                                     or "Xyz" in tmp_card.type or "Link" in tmp_card.type):
                 summoning_condition = helpers.cleanStr(card_text[0].contents[0], [("\n", ""), ("\t", ""), ("\r", "")])
-                card_text = helpers.cleanStr(card_text[0].contents[-1], [("\n", ""), ("\t", ""), ("\r", "")])
+                new_card_text = ""
+                for i in range(1, len(card_text[0].contents)):
+                    if isinstance(card_text[0].contents[i], Tag):
+                        continue
+                    new_card_text += helpers.cleanStr(card_text[0].contents[i], [("\n", ""), ("\t", ""), ("\r", "")])
+                card_text = new_card_text
             else:
                 summoning_condition = ""
                 card_text = helpers.cleanStr(card_text[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
