@@ -68,24 +68,38 @@ for element in link_elements:   # Loop through Packs
         if not 'SPELL' in attribute and not 'TRAP' in attribute:
             level = card_info.find_all("span", class_="box_card_level_rank level")
             if len(level) != 0:
-                level = helpers.cleanStr(level[0].text, [("\n", "")])
+                level = helpers.cleanStr(level[0].text, [("Level ", ""), ("\n", "")])
                 tmp_card.level = level
+
+            rank = card_info.find_all("span", class_="box_card_level_rank rank")
+            if len(rank) != 0:
+                rank = helpers.cleanStr(rank[0].text, [("Rank ", ""), ("\n", "")])
+                tmp_card.rank = rank
 
             link = card_info.find_all("span", class_="box_card_linkmarker")
             if len(link) != 0:
-                link = helpers.cleanStr(link[0].text, [("\n", "")])
+                link = helpers.cleanStr(link[0].text, [("Link ", ""), ("\n", "")])
                 tmp_card.link = link
 
             card_type = card_info.find_all("span", class_="card_info_species_and_other_item")
             card_type = helpers.cleanStr(card_type[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
             tmp_card.type = card_type
 
+            if "Pendulum" in card_type:
+                pend_scale = card_info.find_all("span", class_="box_card_pen_scale")
+                pend_scale = helpers.cleanStr(pend_scale[0].text, [("P Scale ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
+                tmp_card.pend_scale = pend_scale
+
+                pend_effect = card_info.find_all("span", class_="box_card_pen_effect c_text flex_1")
+                pend_effect = helpers.cleanStr(pend_effect[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+                tmp_card.pend_effect = pend_effect
+
             attack_power = card_info.find_all("span", class_="atk_power")
-            attack_power = helpers.cleanStr(attack_power[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+            attack_power = helpers.cleanStr(attack_power[0].text, [("ATK ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
             tmp_card.attack = attack_power
 
             def_power = card_info.find_all("span", class_="def_power")
-            def_power = helpers.cleanStr(def_power[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+            def_power = helpers.cleanStr(def_power[0].text, [("DEF ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
             tmp_card.defense = def_power
 
         # Spell and Trap card specific information
@@ -96,7 +110,14 @@ for element in link_elements:   # Loop through Packs
                 tmp_card.spell_attribute = spell_attribute
 
         card_text = card_info.find_all("dd", class_="box_card_text c_text flex_1")
-        card_text = helpers.cleanStr(card_text[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+        if len(card_text[0].contents) > 1 and ("Fusion" in tmp_card.type or "Synchro" in tmp_card.type
+                                                or "Xyz" in tmp_card.type or "Link" in tmp_card.type):
+            summoning_condition = helpers.cleanStr(card_text[0].contents[0], [("\n", ""), ("\t", ""), ("\r", "")])
+            card_text = helpers.cleanStr(card_text[0].contents[-1], [("\n", ""), ("\t", ""), ("\r", "")])
+        else:
+            summoning_condition = ""
+            card_text = helpers.cleanStr(card_text[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+        tmp_card.summoning_condition = summoning_condition
         tmp_card.card_text = card_text
 
         # Store the card structure into the list of cards
