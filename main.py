@@ -1,10 +1,11 @@
 import os
 import pathlib
 import requests
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, Tag, NavigableString
 import card_structure
 import helpers
 import copy
+import re
 from alive_progress import alive_bar
 import time
 
@@ -12,6 +13,7 @@ script_dir = pathlib.Path(__file__).parent.resolve()
 
 delimiter = '$'
 output_path = pathlib.PurePath(script_dir, "data", "output")
+wiki_URL = "https://yugioh.fandom.com/wiki/"
 base_URL = "https://www.db.yugioh-card.com"
 URL = "https://www.db.yugioh-card.com/yugiohdb/card_list.action"
 page = requests.get(URL)
@@ -124,6 +126,73 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
                 card_text = helpers.cleanStr(card_text[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
             tmp_card.summoning_condition = summoning_condition
             tmp_card.card_text = card_text
+
+            # Grab additional Card information from the wiki
+            processed_card_name = re.sub(' ', '_', tmp_card.name)
+            card_url = requests.get(wiki_URL + processed_card_name)  # Request the URL containing the card lists
+            soup_deck = BeautifulSoup(card_url.content, "html.parser")  # Pass through html parser
+            ind_card_elements = soup_deck.find_all("tr", class_="cardtablerow")  # Find all card structures
+
+            for ind_card_info in ind_card_elements:
+
+                if "Passcode" in ind_card_info.text:
+                    lists = ind_card_info.find_all("td", class_="cardtablerowdata")
+                    passcode = lists[0]
+                    tmp_card.card_passcode = helpers.cleanStr(passcode.text, [("\n", ""), ("\t", ""), ("\r", "")])
+
+                if "Link Arrows" in ind_card_info.text:
+                    lists = ind_card_info.find_all("td", class_="cardtablerowdata")
+                    card_arrows = lists[0]
+                    arrows = []
+                    for arrow in card_arrows:
+                        if not isinstance(arrow, NavigableString) and arrow.text != '':
+                            arrows.append(arrow.text)
+                    tmp_card.link_arrows = arrows
+
+                if "Card effect types" in ind_card_info.text:
+                    lists = ind_card_info.find_all("td", class_="cardtablerowdata")
+                    card_effect_types = lists[0]
+                    effect_types = []
+                    for effect_type in card_effect_types:
+                        if not isinstance(effect_type, NavigableString) and effect_type.text != '\n':
+                            effect_types.append(effect_type.text)
+                    tmp_card.effect_types = effect_types
+
+                if "Statuses" in ind_card_info.text:
+                    lists = ind_card_info.find_all("td", class_="cardtablerowdata")
+                    card_status = lists[0]
+                    tmp_card.card_status = helpers.cleanStr(card_status.text, [(" ", "")])
+
+
+                if "Card search categories" in ind_card_info.text:
+                    lists = ind_card_info.find_all("div", class_="hlist")
+                    for row_list in lists:
+                        if "Supports" in row_list.text:
+                            card_supports = []
+                            card_search_categories = row_list.contents[1]
+                            for support in card_search_categories:
+                                if not '\n' in support.text and support.text != 'Supports ':
+                                    card_supports.append(support.text)
+                            tmp_card.card_supports = card_supports
+
+                        if "Anti-supports" in row_list.text:
+                            card_anti_supports = []
+                            card_search_categories = row_list.contents[1]
+                            for anti_support in card_search_categories:
+                                if not '\n' in anti_support.text and anti_support.text != 'Anti-supports ':
+                                    card_anti_supports.append(anti_support.text)
+                            tmp_card.card_anti_supports = card_anti_supports
+
+                        if "Actions" in row_list.text:
+                            card_actions = []
+                            card_search_categories = row_list.contents[1]
+                            for action in card_search_categories:
+                                if not '\n' in action.text and action.text != 'Actions ':
+                                    card_actions.append(action.text)
+                            tmp_card.card_actions = card_actions
+
+
+
 
             # Store the card structure into the list of cards
             list_of_cards.append(copy.copy(tmp_card))
