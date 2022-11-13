@@ -67,7 +67,7 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
             tmp_card.attribute = attribute
 
             # Monster card specific information
-            if not 'SPELL' in attribute and not 'TRAP' in attribute:
+            if not re.search('SPELL', attribute) and not re.search('TRAP', attribute):
                 level = card_info.find_all("span", class_="box_card_level_rank level")
                 if len(level) != 0:
                     level = helpers.cleanStr(level[0].text, [("Level ", ""), ("\n", "")])
@@ -87,7 +87,7 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
                 card_type = helpers.cleanStr(card_type[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
                 tmp_card.type = card_type
 
-                if "Pendulum" in card_type:
+                if re.search('Pendulum', card_type):
                     pend_scale = card_info.find_all("span", class_="box_card_pen_scale")
                     pend_scale = helpers.cleanStr(pend_scale[0].text, [("P Scale ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
                     tmp_card.pend_scale = pend_scale
@@ -105,7 +105,7 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
                 tmp_card.defense = def_power
 
             # Spell and Trap card specific information
-            if 'SPELL' in attribute or 'TRAP' in attribute:
+            if re.search('SPELL', attribute) or re.search('TRAP', attribute):
                 spell_attribute = card_info.find_all("span", class_="box_card_effect")
                 if len(spell_attribute) != 0:
                     spell_attribute = helpers.cleanStr(spell_attribute[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
@@ -134,40 +134,40 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
             ind_card_elements = soup_deck.find_all("tr", class_="cardtablerow")  # Find all card structures
 
             for ind_card_info in ind_card_elements:
-
-                if "Passcode" in ind_card_info.text:
+                tic = time.perf_counter()
+                if re.search('Passcode', ind_card_info.text):
                     lists = ind_card_info.find_all("td", class_="cardtablerowdata")
                     passcode = lists[0]
                     tmp_card.card_passcode = helpers.cleanStr(passcode.text, [("\n", ""), ("\t", ""), ("\r", "")])
 
-                if "Link Arrows" in ind_card_info.text:
+                if re.search('Link Arrows', ind_card_info.text):
                     lists = ind_card_info.find_all("td", class_="cardtablerowdata")
-                    card_arrows = lists[0]
-                    arrows = []
-                    for arrow in card_arrows:
-                        if not isinstance(arrow, NavigableString) and arrow.text != '':
-                            arrows.append(arrow.text)
-                    tmp_card.link_arrows = arrows
+                    if len(lists) != 0:
+                        card_arrows = lists[0]
+                        arrows = []
+                        for arrow in card_arrows:
+                            if not isinstance(arrow, NavigableString) and arrow.text != '':
+                                arrows.append(arrow.text)
+                        tmp_card.link_arrows = arrows
 
-                if "Card effect types" in ind_card_info.text:
+                if re.search('Card effect types', ind_card_info.text):
                     lists = ind_card_info.find_all("td", class_="cardtablerowdata")
                     card_effect_types = lists[0]
                     effect_types = []
                     for effect_type in card_effect_types:
                         if not isinstance(effect_type, NavigableString) and effect_type.text != '\n':
-                            effect_types.append(effect_type.text)
+                            effect_types.append(helpers.cleanStr(effect_type.text, [("\n", "")]))
                     tmp_card.effect_types = effect_types
 
-                if "Statuses" in ind_card_info.text:
+                if re.search('Statuses', ind_card_info.text):
                     lists = ind_card_info.find_all("td", class_="cardtablerowdata")
                     card_status = lists[0]
                     tmp_card.card_status = helpers.cleanStr(card_status.text, [(" ", "")])
 
-
-                if "Card search categories" in ind_card_info.text:
+                if re.search('Card search categories', ind_card_info.text):
                     lists = ind_card_info.find_all("div", class_="hlist")
                     for row_list in lists:
-                        if "Supports" in row_list.text:
+                        if re.search('Supports', row_list.text):
                             card_supports = []
                             card_search_categories = row_list.contents[1]
                             for support in card_search_categories:
@@ -175,7 +175,7 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
                                     card_supports.append(support.text)
                             tmp_card.card_supports = card_supports
 
-                        if "Anti-supports" in row_list.text:
+                        if re.search('Anti-supports', row_list.text):
                             card_anti_supports = []
                             card_search_categories = row_list.contents[1]
                             for anti_support in card_search_categories:
@@ -183,15 +183,16 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
                                     card_anti_supports.append(anti_support.text)
                             tmp_card.card_anti_supports = card_anti_supports
 
-                        if "Actions" in row_list.text:
+                        if re.search('Actions', row_list.text):
                             card_actions = []
                             card_search_categories = row_list.contents[1]
                             for action in card_search_categories:
-                                if not '\n' in action.text and action.text != 'Actions ':
+                                if not re.search('\n', action.text) and action.text != 'Actions ':
                                     card_actions.append(action.text)
                             tmp_card.card_actions = card_actions
 
-
+                toc = time.perf_counter()
+                bar.text = f'-> Processing pack: {pack_name}, {tmp_card.name} processed in {toc - tic:0.4f} seconds'
 
 
             # Store the card structure into the list of cards
