@@ -27,8 +27,11 @@ def listToStr(list):
 
     '''
     output_string = ""
-    for element in list:
-        output_string += element + " / "
+    for i in range(0, len(list)):
+        if i == 0:
+            output_string += list[i]
+        else:
+            output_string += "/" + list[i]
 
     return output_string
 
@@ -57,7 +60,7 @@ def outputCSV(filename, card_list, delimiter):
     for card in card_list:
         f.write(f"{card.card_passcode}{delimiter}{card.name}{delimiter}"
                 f"{card.card_status}{delimiter}{card.attribute}{delimiter}"
-                f"{card.type}{delimiter}{card.link}{delimiter}{card.link_arrows}{delimiter}"
+                f"{card.type}{delimiter}{card.link}{delimiter}{listToStr(card.link_arrows)}{delimiter}"
                 f"{card.rank}{delimiter}{card.pend_scale}{delimiter}"
                 f"{card.level}{delimiter}{card.attack}{delimiter}{card.defense}"
                 f"{delimiter}{card.spell_attribute}{delimiter}{card.summoning_condition}{delimiter}{card.pend_effect}"

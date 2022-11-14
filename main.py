@@ -137,8 +137,9 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
                 tic = time.perf_counter()
                 if re.search('Passcode', ind_card_info.text):
                     lists = ind_card_info.find_all("td", class_="cardtablerowdata")
-                    passcode = lists[0]
-                    tmp_card.card_passcode = helpers.cleanStr(passcode.text, [("\n", ""), ("\t", ""), ("\r", "")])
+                    if len(lists) != 0:
+                        passcode = lists[0]
+                        tmp_card.card_passcode = helpers.cleanStr(passcode.text, [("\n", ""), ("\t", ""), ("\r", "")])
 
                 if re.search('Link Arrows', ind_card_info.text):
                     lists = ind_card_info.find_all("td", class_="cardtablerowdata")
@@ -152,17 +153,21 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
 
                 if re.search('Card effect types', ind_card_info.text):
                     lists = ind_card_info.find_all("td", class_="cardtablerowdata")
-                    card_effect_types = lists[0]
-                    effect_types = []
-                    for effect_type in card_effect_types:
-                        if not isinstance(effect_type, NavigableString) and effect_type.text != '\n':
-                            effect_types.append(helpers.cleanStr(effect_type.text, [("\n", "")]))
-                    tmp_card.effect_types = effect_types
+                    if len(lists) != 0:
+                        card_effect_types = lists[0]
+                        effect_types = []
+                        for effect_type in card_effect_types:
+                            if not isinstance(effect_type, NavigableString) and effect_type.text != '\n':
+                                for effect in effect_type:
+                                    if effect.text not in effect_types and not re.search('\n', effect.text):
+                                        effect_types.append(effect.text)
+                        tmp_card.effect_types = effect_types
 
                 if re.search('Statuses', ind_card_info.text):
                     lists = ind_card_info.find_all("td", class_="cardtablerowdata")
-                    card_status = lists[0]
-                    tmp_card.card_status = helpers.cleanStr(card_status.text, [(" ", "")])
+                    if len(lists) != 0:
+                        card_status = lists[0]
+                        tmp_card.card_status = helpers.cleanStr(card_status.text, [(" ", "")])
 
                 if re.search('Card search categories', ind_card_info.text):
                     lists = ind_card_info.find_all("div", class_="hlist")
@@ -192,7 +197,7 @@ with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as b
                             tmp_card.card_actions = card_actions
 
                 toc = time.perf_counter()
-                bar.text = f'-> Processing pack: {pack_name}, {tmp_card.name} processed in {toc - tic:0.4f} seconds'
+            bar.text = f'-> Processing pack: {pack_name}, {tmp_card.name} processed in {toc - tic:0.4f} seconds'
 
 
             # Store the card structure into the list of cards
