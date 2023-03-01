@@ -56,6 +56,9 @@ def apply_name_exceptions(name):
     name = name_checker(name, "Vampire Baby (Updated from: Red-Moon Baby)", "Vampire Baby")
     name = name_checker(name, "Sky Scout (Updated from: Harpie's Brother)", "Sky Scout")
     name = name_checker(name, "Cipher Soldier (Updated from: Kinetic Soldier)", "Cipher Soldier")
+    name = name_checker(name, "B.E.S. Big Core (Updated from: Big Core)", "B.E.S. Big Core")
+    name = name_checker(name, "Slime Toad (Updated from: Frog the Jam)", "Slime Toad")
+    name = name_checker(name, "Necrolancer the Time-lord (Updated from: Necrolancer the Timelord)", "Necrolancer the Time-lord")
 
 
     return name

@@ -83,8 +83,12 @@ if __name__ == "__main__":
                     link_value = link_value_struct[0].attrs['value']
 
                     card_info_page, card_raw_url = helpers.get_page(base_URL + link_value, language_code, requests_session)
-                    english_name = card_info_page.find("div", {"id": "cardname"}).h1
-                    english_name = english_name.select_one("span").text
+                    try:
+                        english_name = card_info_page.find("div", {"id": "cardname"}).h1
+                        english_name = english_name.select_one("span").text
+                    except:
+                        continue
+
                 else:
                     english_name = tmp_card.name
 
