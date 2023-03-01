@@ -7,9 +7,11 @@ import helpers
 import copy
 import re
 from alive_progress import alive_bar
+from langdetect import detect
 import time
 import argparse
 import sys
+
 
 
 if __name__ == "__main__":
@@ -89,6 +91,9 @@ if __name__ == "__main__":
                     except:
                         continue
 
+                    if detect(english_name) != 'en':
+                        continue
+
                 else:
                     english_name = tmp_card.name
 
@@ -98,7 +103,7 @@ if __name__ == "__main__":
 
                 # Monster card specific information
                 # Exemption list is missing japanese and korean so will not work for those two languages and will probably crash
-                exemption_list = ['SPELL', 'TRAP', 'MAGIE', 'PIÈGE', 'ZAUBER', 'FALLE', 'MAGIA', 'TRAPPOLA', 'MÁGICA', 'TRAMPA', 'ARMADILHA', 'MAGIA']
+                exemption_list = ['SPELL', 'TRAP', 'MAGIE', 'PIÈGE', 'ZAUBER', 'FALLE', 'MAGIA', 'TRAPPOLA', 'MÁGICA', 'TRAMPA', 'ARMADILHA', 'MAGIA', '魔法', '罠', '마법', '함정']
                 monster_card_found = True
                 for pattern in exemption_list:
                     if re.search(pattern, attribute):
