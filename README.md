@@ -13,10 +13,21 @@ pip install -r requirements.txt
 
 ![](./img/progress_bar.PNG)
 
-Running the script is as simple as launching the entry point `main.py` with no arguments. An output folder will be created with a CSV file for each pack. A picture can be seen below of the output.
+Running the script is as simple as launching the entry point `main.py` specifying the language option (no arguments will default to english). An output folder will be created with a CSV file for each pack. If a connection is lost, or internet is lost, you can re=run the script and it will continue from where it left off. A picture can be seen below of the output.
 
 ![](./img/csv_files.PNG)
 
 A snippet of a single file in excel (delimited using the $ character - this can be modified in the script as needed)
 
 ![](./img/excel_output.PNG)
+
+## Language Support
+language support is an experimental feature that has been added to specify language of output. Languages include English, French, Deutsch, Italian, Spanish, Portuguese, and can be specified as follows:
+
+```
+python main.py --language fr # Accepts the following {en,fr,de,it,es,pt}
+```
+![](./img/csv_files_fr.PNG)
+
+## Bugs
+As always, if you find bugs don't hesitate to contact me and I'll do my best to support. Thanks!

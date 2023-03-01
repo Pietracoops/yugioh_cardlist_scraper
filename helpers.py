@@ -1,4 +1,161 @@
 import re
+from bs4 import BeautifulSoup
+
+
+def name_checker(name, find_name, change_name):
+    '''
+    Checks if name is equivalent to the find_name, and swaps it with change_name
+    Attributes :
+    - name:  Input string [ string ]
+    - find_name:  String to find [ string ]
+    - change_name:  String to swap in [ string ]
+
+    Outputs :
+    - name: Processed card name [ string ]
+
+    '''
+    if name == find_name:
+        name = change_name
+    return name
+
+def apply_name_exceptions(name):
+    '''
+    Applies exceptions in card names, whether these are typos or improper website conventions
+    Attributes :
+    - name:  Raw english card name [ string ]
+
+    Outputs :
+    - name: Processed english card name [ string ]
+
+    '''
+    # If other exceptions are found, simply place the conversion here.
+    name = name_checker(name, "Apophis the Swamp Deity", "Aphophis the Swamp Deity")
+    name = name_checker(name, "Tally-ho! Springans", "Tally-Ho! Springans")
+    name = name_checker(name, "Terrors of the Overroot", "Terrors of the Overrroot")
+    name = name_checker(name, "Protector of The Agents - Moon", "Protector of the Agents - Moon")
+    name = name_checker(name, "Kaiser Glider - Golden Burst", "Kaiser Glider Golden Burst")
+    name = name_checker(name, "Zektrike Kou-ou", "Zektrike Kou-Ou")
+    name = name_checker(name, "Double Disruptor Dragon", "Double Disrupter Dragon")
+    name = name_checker(name, "Floowandereeze and the Unexplored Winds", "Floowandereeze and the Unexplored Wind")
+    name = name_checker(name, "Vampiric Koala (Updated from: Vampire Koala)", "Vampiric Koala")
+    name = name_checker(name, "Vampiric Orchis (Updated from: Vampire Orchis)", "Vampiric Orchis")
+    name = name_checker(name, "Amazoness Archer (Updated from: Amazon Archer)", "Amazoness Archer")
+    name = name_checker(name, "Darklord Nurse Reficule (Updated from: Nurse Reficule the Fallen One)", "Darklord Nurse Reficule")
+    name = name_checker(name, "Darklord Marie (Updated from: Marie the Fallen One)", "Darklord Marie")
+    name = name_checker(name, "Black Skull Dragon (Updated from: B. Skull Dragon)", "Black Skull Dragon")
+
+    return name
+
+def process_english_name(name):
+    '''
+    Cleans up the english name and prepares it for web page use
+    Attributes :
+    - name:  Raw english card name [ string ]
+
+    Outputs :
+    - name: Processed english card name [ string ]
+
+    '''
+    name = apply_name_exceptions(name)
+    name = re.sub(' ', '_', name)
+    name = re.sub('\?', '%3F', name)  # Need to replace question marks for URL
+    name = re.sub('\'', '%27', name)  # Need to replace single quote for URL
+
+    return name
+
+
+def get_packs_and_links(url, requests_session):
+    '''
+    Retrieves all card names from card elements array
+    Attributes :
+    - url:  URL for web page [ string ]
+    - requests_session: Requests session object for query usage
+
+    Outputs :
+    - pack_elements: HTML array of packs [ string array ]
+    - link_elements: HTML array of links [ string array ]
+    - pack_names: String array of pack names [ string array ]
+
+    '''
+    page = requests_session.get(url)
+    soup = BeautifulSoup(page.content, "html.parser")
+    pack_elements = soup.find_all("div", class_="pack pack_en")
+    link_elements = soup.find_all("input", class_="link_value")
+    pack_names = soup.find_all('div', class_="pack")
+    return pack_elements, link_elements, pack_names
+
+def get_card_names(card_elements):
+    '''
+    Retrieves all card names from card elements array
+    Attributes :
+    - card_elements:  HTML elements for each individual card in array [ string array ]
+
+    Outputs :
+    - name_list: Array of card names [ string ]
+
+    '''
+    name_list = []
+    for card_info in card_elements:
+        name = card_info.find_all("span", class_="card_name")
+        name_list.append(name[0].text)
+    return name_list
+
+def get_page(base_URL, language_code, requests_session):
+    '''
+    Retrieves a URL page using requests and beautiful soup
+    Attributes :
+    - base_URL:  URL for base web page [ string ]
+    - language_code: Website language code (e.g. "en") [ string ]
+    - requests_session: Requests session object for query usage
+
+    Outputs :
+    - soup_deck: HTML output for web page
+    - raw_url: The raw URL of the webpage containing the HTML card elements for debugging purposes [ string ]
+
+    '''
+    url = requests_session.get(base_URL + f"&request_locale={language_code}")
+    raw_url = base_URL + f"&request_locale={language_code}"
+    soup_deck = BeautifulSoup(url.content, "html.parser")  # Pass through html parser
+    return soup_deck, raw_url
+
+def get_card_elements(base_URL, element, language_code, requests_session):
+    '''
+    Retrieves the card html elements for a pack
+    Attributes :
+    - base_URL:  URL for base web page [ string ]
+    - element: HTML element containing the deck information
+    - language_code: Website language code (e.g. "en") [ string ]
+    - requests_session: Requests session object for query usage
+
+    Outputs :
+    - card_elements: HTML elements for each individual card in array [ string array ]
+    - raw_url: The raw URL of the webpage containing the HTML card elements for debugging purposes [ string ]
+
+    '''
+    deck_info_link = element['value']
+    deck_url = requests_session.get(base_URL + deck_info_link + f"&request_locale={language_code}")
+    raw_url = base_URL + deck_info_link + f"&request_locale={language_code}"
+    soup_deck = BeautifulSoup(deck_url.content, "html.parser")  # Pass through html parser
+    card_elements = soup_deck.find_all("div", class_="t_row c_normal")  # Find all card structures
+    return card_elements, raw_url
+
+def get_pack_name(pack_names, count):
+    '''
+    Retrieves the pack name from the pack_names array given a count
+    Attributes :
+    - pack_names:  Pack name array containing html structure [ string array ]
+    - count: Count in array to retrieve pack name from [ int ]
+
+    Outputs :
+    - pack_name: Pack name from html structure [ string ]
+
+    '''
+    pack_name = pack_names[count].text.strip()
+    pack_name = pack_name.split('\n')  # Split according to the new line character
+    if len(pack_name) != 0:  # If the split found a new character line, grab only the first part
+        pack_name = pack_name[0]
+    pack_name = cleanStr(pack_name, [("/", "-"), (":", "-")])
+    return pack_name
 
 def cleanStr(str, substitutions):
     '''
