@@ -43,6 +43,20 @@ def apply_name_exceptions(name):
     name = name_checker(name, "Darklord Nurse Reficule (Updated from: Nurse Reficule the Fallen One)", "Darklord Nurse Reficule")
     name = name_checker(name, "Darklord Marie (Updated from: Marie the Fallen One)", "Darklord Marie")
     name = name_checker(name, "Black Skull Dragon (Updated from: B. Skull Dragon)", "Black Skull Dragon")
+    name = name_checker(name, "Malefic Red-Eyes Black Dragon (Updated from: Malefic Red-Eyes B. Dragon)", "Malefic Red-Eyes Black Dragon")
+    name = name_checker(name, "Darkfall (Updated from: Dark Trap Hole)", "Darkfall")
+    name = name_checker(name, "Silent Graveyard (Updated from: Forbidden Graveyard)", "Silent Graveyard")
+    name = name_checker(name, "Armityle the Chaos Phantasm (Updated from: Armityle the Chaos Phantom)", "Armityle the Chaos Phantasm")
+    name = name_checker(name, "Supernatural Regeneration (Updated from: Metaphysical Regeneration)", "Supernatural Regeneration")
+    name = name_checker(name, "Wattkid (Updated from: Oscillo Hero #2)", "Wattkid")
+    name = name_checker(name, "Hidden Spellbook (Updated from: Hidden Book of Spell)", "Hidden Spellbook")
+    name = name_checker(name, "Dark Scorpion - Cliff the Trap Remover (Updated from: Cliff the Trap Remover)", "Dark Scorpion - Cliff the Trap Remover")
+    name = name_checker(name, "Spellbook Organization (Updated from: Pigeonholing Books of Spell)", "Spellbook Organization")
+    name = name_checker(name, "Muko (Updated from: Null and Void)", "Muko")
+    name = name_checker(name, "Vampire Baby (Updated from: Red-Moon Baby)", "Vampire Baby")
+    name = name_checker(name, "Sky Scout (Updated from: Harpie's Brother)", "Sky Scout")
+    name = name_checker(name, "Cipher Soldier (Updated from: Kinetic Soldier)", "Cipher Soldier")
+
 
     return name
 
@@ -58,6 +72,7 @@ def process_english_name(name):
     '''
     name = apply_name_exceptions(name)
     name = re.sub(' ', '_', name)
+    name = re.sub('#', '', name)
     name = re.sub('\?', '%3F', name)  # Need to replace question marks for URL
     name = re.sub('\'', '%27', name)  # Need to replace single quote for URL
 
