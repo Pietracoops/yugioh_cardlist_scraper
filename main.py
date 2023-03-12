@@ -91,8 +91,9 @@ if __name__ == "__main__":
                     except:
                         continue
 
-                    if detect(english_name) != 'en':
-                        continue
+                    if len(english_name) > 2:
+                        if detect(english_name) != 'en':
+                            continue
 
                 else:
                     english_name = tmp_card.name
