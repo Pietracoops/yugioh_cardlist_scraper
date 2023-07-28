@@ -12,7 +12,16 @@ import time
 import argparse
 import sys
 
+YGOPRODECK_API = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
 
+link_dict = {1: "Bottom-Left",
+             2: "Bottom",
+             3: "Bottom-Right",
+             4: "Left",
+             6: "Right",
+             7: "Top-Left",
+             8: "Top",
+             9: "Top-Right"}
 
 if __name__ == "__main__":
 
@@ -27,12 +36,25 @@ if __name__ == "__main__":
     ###########################
 
     script_dir = pathlib.Path(__file__).parent.resolve()
+    
+    # Check Platform
+    helpers.check_platform()
+
+    # Clone the yugioh-card-history git
+    repository_url = 'https://github.com/db-ygorganization-com/yugioh-card-history.git'
+    clone_repo_path = pathlib.PurePath(script_dir, "yugioh-card-history")
+    helpers.clone_or_pull_repo(repository_url, str(clone_repo_path))
 
     # English="en", French="fr", Japanese="ja", Deutsch="de", Italian="it", Spanish="es", Portugese = "pt", Korean="ko"
     language_code = args.language
 
+    # Get the language database
+    file_pattern = pathlib.PurePath(script_dir, "yugioh-card-history", language_code, "*.json")
+    card_hashmap = helpers.combine_json_files(str(file_pattern), language_code, 'name')
+    card_en_id_hashmap = helpers.combine_json_files(str(file_pattern), 'en', 'id')
+
     delimiter = '$'
-    output_path = pathlib.PurePath(script_dir, "data", "output")
+    output_path = pathlib.PurePath(script_dir, "data", language_code)
     wiki_URL = "https://yugioh.fandom.com/wiki/"
     base_URL = "https://www.db.yugioh-card.com"
     URL = f"https://www.db.yugioh-card.com/yugiohdb/card_list.action?request_locale={language_code}"
@@ -49,10 +71,11 @@ if __name__ == "__main__":
 
     # Initialization
     list_of_cards = []
+    processed_card_database = {}
     count = 0
     pack_elements, link_elements, pack_names = helpers.get_packs_and_links(URL, requests_session)
 
-    with alive_bar(len(link_elements), dual_line=True, title='Packs Processed') as bar:
+    with alive_bar(len(link_elements), dual_line=True, title='Packs Processed', force_tty=True) as bar:
 
         for element_num in range(len(link_elements)):   # Loop through Packs
             # If the count exceeds number of names - Exit
@@ -80,95 +103,143 @@ if __name__ == "__main__":
                 name = card_info.find_all("span", class_="card_name")
                 tmp_card.name = name[0].text
 
-                if language_code != "en":
-                    link_value_struct = card_info.find_all("input", class_="link_value")
-                    link_value = link_value_struct[0].attrs['value']
+                if name[0].text in processed_card_database:
+                    list_of_cards.append(copy.copy(processed_card_database[name[0].text]))
+                    continue
 
-                    card_info_page, card_raw_url = helpers.get_page(base_URL + link_value, language_code, requests_session)
-                    try:
-                        english_name = card_info_page.find("div", {"id": "cardname"}).h1
-                        english_name = english_name.select_one("span").text
-                    except:
-                        continue
+                card_hash_data = card_hashmap.get(name[0].text)
+                scrape_additional_data = False
+                if card_hash_data != None:
+                    if card_hash_data.get('localizedAttribute') != None:
+                        tmp_card.attribute = card_hash_data.get('localizedAttribute')
+                    if card_hash_data.get('localizedProperty') != None:
+                        tmp_card.spell_attribute = card_hash_data.get('localizedProperty')
+                    if card_hash_data.get('level') != None:
+                        tmp_card.level = card_hash_data.get('level')
+                    if card_hash_data.get('rank') != None:
+                        tmp_card.rank = card_hash_data.get('rank')
+                    if card_hash_data.get('linkRating') != None:
+                        tmp_card.link = card_hash_data.get('linkRating')
+                    if card_hash_data.get('linkArrows') != None:
+                        tmp_card.link_arrows = '/'.join([link_dict[int(key)] for key in card_hash_data.get('linkArrows')])
+                    if card_hash_data.get('pendScale') != None:
+                        tmp_card.pend_scale = card_hash_data.get('pendScale')
+                    if card_hash_data.get('pendEffect') != None:
+                        tmp_card.pend_effect = card_hash_data.get('pendEffect')
+                    if card_hash_data.get('properties') != None:
+                        tmp_card.type = '/'.join(card_hash_data.get('properties'))
+                    if card_hash_data.get('atk') != None:
+                        tmp_card.attack = card_hash_data.get('atk')
+                    if card_hash_data.get('def') != None:
+                        tmp_card.defense = card_hash_data.get('def')
+                    if  card_hash_data.get('effectText') != None and'\n' in card_hash_data.get('effectText'):
+                        tmp_card.summoning_condition = card_hash_data.get('effectText').split('\n')[0]
+                    if  card_hash_data.get('effectText') != None:
+                        tmp_card.card_text = card_hash_data.get('effectText')
 
-                    if len(english_name) > 2:
-                        if detect(english_name) != 'en':
-                            continue
+                    # Use the konami code to find other information in ygoprodeck api
+                    en_hashmap_data = card_en_id_hashmap.get(card_hash_data.get('id'))
+                    if en_hashmap_data != None:
+                        if en_hashmap_data.get('name') != None:
+                            tmp_card.card_passcode = en_hashmap_data.get('id')
+                        english_name = en_hashmap_data.get('name')
+                    else:
+                        scrape_additional_data = True
 
                 else:
-                    english_name = tmp_card.name
+                    scrape_additional_data = True
 
-                attribute = card_info.find_all("span", class_="box_card_attribute")
-                attribute = helpers.cleanStr(attribute[0].text, [("\n", "")])
-                tmp_card.attribute = attribute
+                if scrape_additional_data == True:
+                    if language_code != "en":
+                        link_value_struct = card_info.find_all("input", class_="link_value")
+                        link_value = link_value_struct[0].attrs['value']
 
-                # Monster card specific information
-                # Exemption list is missing japanese and korean so will not work for those two languages and will probably crash
-                exemption_list = ['SPELL', 'TRAP', 'MAGIE', 'PIÈGE', 'ZAUBER', 'FALLE', 'MAGIA', 'TRAPPOLA', 'MÁGICA', 'TRAMPA', 'ARMADILHA', 'MAGIA', '魔法', '罠', '마법', '함정']
-                monster_card_found = True
-                for pattern in exemption_list:
-                    if re.search(pattern, attribute):
-                        monster_card_found = False
-
-                if monster_card_found:
-                    level = card_info.find_all("span", class_="box_card_level_rank level")
-                    if len(level) != 0:
-                        level = helpers.cleanStr(level[0].text, [("Level ", ""), ("\n", "")])
-                        tmp_card.level = level
-
-                    rank = card_info.find_all("span", class_="box_card_level_rank rank")
-                    if len(rank) != 0:
-                        rank = helpers.cleanStr(rank[0].text, [("Rank ", ""), ("\n", "")])
-                        tmp_card.rank = rank
-
-                    link = card_info.find_all("span", class_="box_card_linkmarker")
-                    if len(link) != 0:
-                        link = helpers.cleanStr(link[0].text, [("Link ", ""), ("\n", "")])
-                        tmp_card.link = link
-
-                    card_type = card_info.find_all("span", class_="card_info_species_and_other_item")
-                    card_type = helpers.cleanStr(card_type[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
-                    tmp_card.type = card_type
-
-                    if re.search('Pendulum', card_type):
-                        pend_scale = card_info.find_all("span", class_="box_card_pen_scale")
-                        pend_scale = helpers.cleanStr(pend_scale[0].text, [("P Scale ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
-                        tmp_card.pend_scale = pend_scale
-
-                        pend_effect = card_info.find_all("span", class_="box_card_pen_effect c_text flex_1")
-                        pend_effect = helpers.cleanStr(pend_effect[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
-                        tmp_card.pend_effect = pend_effect
-
-                    attack_power = card_info.find_all("span", class_="atk_power")
-                    attack_power = helpers.cleanStr(attack_power[0].text, [("ATK ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
-                    tmp_card.attack = attack_power
-
-                    def_power = card_info.find_all("span", class_="def_power")
-                    def_power = helpers.cleanStr(def_power[0].text, [("DEF ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
-                    tmp_card.defense = def_power
-
-                # Spell and Trap card specific information
-                if re.search('SPELL', attribute) or re.search('TRAP', attribute):
-                    spell_attribute = card_info.find_all("span", class_="box_card_effect")
-                    if len(spell_attribute) != 0:
-                        spell_attribute = helpers.cleanStr(spell_attribute[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
-                        tmp_card.spell_attribute = spell_attribute
-
-                card_text = card_info.find_all("dd", class_="box_card_text c_text flex_1")
-                if len(card_text[0].contents) > 1 and ("Fusion" in tmp_card.type or "Synchro" in tmp_card.type
-                                                        or "Xyz" in tmp_card.type or "Link" in tmp_card.type):
-                    summoning_condition = helpers.cleanStr(card_text[0].contents[0], [("\n", ""), ("\t", ""), ("\r", "")])
-                    new_card_text = ""
-                    for i in range(1, len(card_text[0].contents)):
-                        if isinstance(card_text[0].contents[i], Tag):
+                        card_info_page, card_raw_url = helpers.get_page(base_URL + link_value, language_code, requests_session)
+                        try:
+                            english_name = card_info_page.find("div", {"id": "cardname"}).h1
+                            english_name = english_name.select_one("span").text
+                        except:
                             continue
-                        new_card_text += helpers.cleanStr(card_text[0].contents[i], [("\n", ""), ("\t", ""), ("\r", "")])
-                    card_text = new_card_text
-                else:
-                    summoning_condition = ""
-                    card_text = helpers.cleanStr(card_text[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
-                tmp_card.summoning_condition = summoning_condition
-                tmp_card.card_text = card_text
+
+                        if len(english_name) > 2:
+                            if detect(english_name) != 'en':
+                                continue
+
+                    else:
+                        english_name = tmp_card.name
+
+
+                    attribute = card_info.find_all("span", class_="box_card_attribute")
+                    attribute = helpers.cleanStr(attribute[0].text, [("\n", "")])
+                    tmp_card.attribute = attribute
+
+                    # Monster card specific information
+                    # Exemption list is missing japanese and korean so will not work for those two languages and will probably crash
+                    exemption_list = ['SPELL', 'TRAP', 'MAGIE', 'PIÈGE', 'ZAUBER', 'FALLE', 'MAGIA', 'TRAPPOLA', 'MÁGICA', 'TRAMPA', 'ARMADILHA', 'MAGIA', '魔法', '罠', '마법', '함정']
+                    monster_card_found = True
+                    for pattern in exemption_list:
+                        if re.search(pattern, attribute):
+                            monster_card_found = False
+
+                    if monster_card_found:
+                        level = card_info.find_all("span", class_="box_card_level_rank level")
+                        if len(level) != 0:
+                            level = helpers.cleanStr(level[0].text, [("Level ", ""), ("\n", "")])
+                            tmp_card.level = level
+
+                        rank = card_info.find_all("span", class_="box_card_level_rank rank")
+                        if len(rank) != 0:
+                            rank = helpers.cleanStr(rank[0].text, [("Rank ", ""), ("\n", "")])
+                            tmp_card.rank = rank
+
+                        link = card_info.find_all("span", class_="box_card_linkmarker")
+                        if len(link) != 0:
+                            link = helpers.cleanStr(link[0].text, [("Link ", ""), ("\n", "")])
+                            tmp_card.link = link
+
+                        card_type = card_info.find_all("span", class_="card_info_species_and_other_item")
+                        card_type = helpers.cleanStr(card_type[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+                        tmp_card.type = card_type
+
+                        if re.search('Pendulum', card_type):
+                            pend_scale = card_info.find_all("span", class_="box_card_pen_scale")
+                            pend_scale = helpers.cleanStr(pend_scale[0].text, [("P Scale ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
+                            tmp_card.pend_scale = pend_scale
+
+                            pend_effect = card_info.find_all("span", class_="box_card_pen_effect c_text flex_1")
+                            pend_effect = helpers.cleanStr(pend_effect[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+                            tmp_card.pend_effect = pend_effect
+
+                        attack_power = card_info.find_all("span", class_="atk_power")
+                        attack_power = helpers.cleanStr(attack_power[0].text, [("ATK ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
+                        tmp_card.attack = attack_power
+
+                        def_power = card_info.find_all("span", class_="def_power")
+                        def_power = helpers.cleanStr(def_power[0].text, [("DEF ", ""), ("\n", ""), ("\t", ""), ("\r", "")])
+                        tmp_card.defense = def_power
+
+                    # Spell and Trap card specific information
+                    if re.search('SPELL', attribute) or re.search('TRAP', attribute):
+                        spell_attribute = card_info.find_all("span", class_="box_card_effect")
+                        if len(spell_attribute) != 0:
+                            spell_attribute = helpers.cleanStr(spell_attribute[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+                            tmp_card.spell_attribute = spell_attribute
+
+                    card_text = card_info.find_all("dd", class_="box_card_text c_text flex_1")
+                    if len(card_text[0].contents) > 1 and ("Fusion" in tmp_card.type or "Synchro" in tmp_card.type
+                                                            or "Xyz" in tmp_card.type or "Link" in tmp_card.type):
+                        summoning_condition = helpers.cleanStr(card_text[0].contents[0], [("\n", ""), ("\t", ""), ("\r", "")])
+                        new_card_text = ""
+                        for i in range(1, len(card_text[0].contents)):
+                            if isinstance(card_text[0].contents[i], Tag):
+                                continue
+                            new_card_text += helpers.cleanStr(card_text[0].contents[i], [("\n", ""), ("\t", ""), ("\r", "")])
+                        card_text = new_card_text
+                    else:
+                        summoning_condition = ""
+                        card_text = helpers.cleanStr(card_text[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+                    tmp_card.summoning_condition = summoning_condition
+                    tmp_card.card_text = card_text
 
                 # Grab additional Card information from the wiki
                 processed_card_name = helpers.process_english_name(english_name)
@@ -256,6 +327,7 @@ if __name__ == "__main__":
 
                 # Store the card structure into the list of cards
                 list_of_cards.append(copy.copy(tmp_card))
+                processed_card_database[tmp_card.name] = copy.copy(tmp_card)
                 tmp_card.clear()    # Clear the individual temporary structure for next card
 
             helpers.outputCSV(f"{output_path}/{pack_name}.csv", list_of_cards, delimiter)

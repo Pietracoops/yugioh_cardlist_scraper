@@ -1,5 +1,75 @@
 import re
+import platform
+import git
+import os
+import json
+import glob
+import copy
+import requests
+from card_structure import Card
 from bs4 import BeautifulSoup
+
+def fetch_json_data(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        json_data = response.json()
+        return json_data
+    else:
+        print('Failed to fetch JSON data. Status code:', response.status_code)
+        return None
+def combine_json_files(file_pattern, language_code, id):
+    output_hashmap = {}
+
+    # Find all JSON files matching the given file pattern
+    json_files = glob.glob(file_pattern)
+
+    if language_code == "en" or language_code == "fr" or language_code == "de" or language_code == "it" or language_code == "pt":
+        if language_code != "en":
+            ygo_pro_api = fetch_json_data(f'https://db.ygoprodeck.com/api/v7/cardinfo.php??misc=yes&language={language_code}')
+        else:
+            ygo_pro_api = fetch_json_data(f'https://db.ygoprodeck.com/api/v7/cardinfo.php?misc=yes')
+        #output_hashmap = {item['misc_info'][0]['konami_id']: item for item in ygo_pro_api['data']}
+        count = 0
+        for item in ygo_pro_api['data']:
+            if id == 'name':
+                output_hashmap[item['name']] = item
+            else:
+                if item['misc_info'][0].get('konami_id') != None:
+                    output_hashmap[item['misc_info'][0]['konami_id']] = item
+                else:
+                    count += 1
+
+        # Languages can only be queried on cardinfo.php and must be passed with &language= along with the language code.
+        # The language codes are: fr for French, de for German, it for Italian and pt for Portuguese.
+    else:
+
+        # Read and combine the contents of each JSON file CARD
+        for file in json_files:
+            with open(file, 'r', encoding='utf-8') as json_file:
+                data = json.load(json_file)
+                output_hashmap[data.get(id)] = data
+
+    return output_hashmap
+
+def clone_or_pull_repo(url, destination):
+    if os.path.exists(destination):
+        repo = git.Repo(destination)
+        repo.remotes.origin.pull()
+        print(f"Updating {destination} - this may take a couple of minutes... ", end='')
+    else:
+        print(f"Cloning {url} - this may take a couple of minutes... ", end='')
+        git.Repo.clone_from(url, destination)
+    print("Done")
+
+def check_platform():
+    current_platform = platform.system()
+    if current_platform == 'Linux':
+        print('Running on Linux')
+    elif current_platform == 'Windows':
+        print('Running on Windows')
+    else:
+        print('Running on', current_platform)
+    return current_platform
 
 
 def name_checker(name, find_name, change_name):
