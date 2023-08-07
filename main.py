@@ -31,6 +31,7 @@ if __name__ == "__main__":
                         choices=["en", "fr", "ja", "de", "it", "es", "pt", "ko"],
                         default="en",
                         help="Select the generation language")
+    parser.add_argument("-f", "--fast", action='store_true', default=False)
 
     args = parser.parse_args()
     ###########################
@@ -47,6 +48,7 @@ if __name__ == "__main__":
 
     # English="en", French="fr", Japanese="ja", Deutsch="de", Italian="it", Spanish="es", Portugese = "pt", Korean="ko"
     language_code = args.language
+    scrape_additional_data = not args.fast
 
     # Get the language database
     file_pattern = pathlib.PurePath(script_dir, "yugioh-card-history", language_code, "*.json")
@@ -107,49 +109,95 @@ if __name__ == "__main__":
                     list_of_cards.append(copy.copy(processed_card_database[name[0].text]))
                     continue
 
+                if name[0].text == "Armed Neos":
+                    print("e")
+
+                card_start_time = time.time()
+
                 card_hash_data = card_hashmap.get(name[0].text)
-                scrape_additional_data = False
+                process_english_name = False
                 if card_hash_data != None:
+
                     if card_hash_data.get('localizedAttribute') != None:
                         tmp_card.attribute = card_hash_data.get('localizedAttribute')
-                    if card_hash_data.get('localizedProperty') != None:
-                        tmp_card.spell_attribute = card_hash_data.get('localizedProperty')
-                    if card_hash_data.get('level') != None:
-                        tmp_card.level = card_hash_data.get('level')
-                    if card_hash_data.get('rank') != None:
-                        tmp_card.rank = card_hash_data.get('rank')
-                    if card_hash_data.get('linkRating') != None:
-                        tmp_card.link = card_hash_data.get('linkRating')
-                    if card_hash_data.get('linkArrows') != None:
-                        tmp_card.link_arrows = '/'.join([link_dict[int(key)] for key in card_hash_data.get('linkArrows')])
-                    if card_hash_data.get('pendScale') != None:
-                        tmp_card.pend_scale = card_hash_data.get('pendScale')
-                    if card_hash_data.get('pendEffect') != None:
-                        tmp_card.pend_effect = card_hash_data.get('pendEffect')
-                    if card_hash_data.get('properties') != None:
-                        tmp_card.type = '/'.join(card_hash_data.get('properties'))
-                    if card_hash_data.get('atk') != None:
-                        tmp_card.attack = card_hash_data.get('atk')
-                    if card_hash_data.get('def') != None:
-                        tmp_card.defense = card_hash_data.get('def')
-                    if  card_hash_data.get('effectText') != None and'\n' in card_hash_data.get('effectText'):
-                        tmp_card.summoning_condition = card_hash_data.get('effectText').split('\n')[0]
-                    if  card_hash_data.get('effectText') != None:
-                        tmp_card.card_text = card_hash_data.get('effectText')
+                    elif card_hash_data.get('attribute') != None:
+                        tmp_card.attribute = card_hash_data.get('attribute')
+                    elif card_hash_data.get('frameType') != None:
+                        tmp_card.attribute = card_hash_data.get('frameType').upper()
+
+                    if card_hash_data.get('englishAttribute') == "trap" \
+                        or card_hash_data.get('frameType') == "trap" \
+                        or card_hash_data.get('englishAttribute') == "spell" \
+                        or card_hash_data.get('frameType') == "spell":
+                        if card_hash_data.get('localizedProperty') != None:
+                            tmp_card.spell_attribute = card_hash_data.get('localizedProperty')
+                        elif card_hash_data.get('race') != None:
+                            tmp_card.spell_attribute = card_hash_data.get('race')
+                    else: # It's a monster
+                        if card_hash_data.get('level') != None:
+                            tmp_card.level = card_hash_data.get('level')
+                        if card_hash_data.get('rank') != None:
+                            tmp_card.rank = card_hash_data.get('rank')
+                        if card_hash_data.get('linkRating') != None:
+                            tmp_card.link = card_hash_data.get('linkRating')
+                        elif card_hash_data.get('linkval') != None:
+                            tmp_card.link = card_hash_data.get('linkval')
+                        if card_hash_data.get('linkArrows') != None:
+                            tmp_card.link_arrows = '/'.join(
+                                [link_dict[int(key)] for key in card_hash_data.get('linkArrows')])
+                        elif card_hash_data.get('linkmarkers') != None:
+                            tmp_card.link_arrows = card_hash_data.get('linkmarkers')
+                        if card_hash_data.get('pendScale') != None:
+                            tmp_card.pend_scale = card_hash_data.get('pendScale')
+                        elif card_hash_data.get('scale') != None:
+                            tmp_card.pend_scale = card_hash_data.get('scale')
+
+                        if tmp_card.pend_scale != "":
+                            if card_hash_data.get('pendEffect') != None:
+                                tmp_card.pend_effect = card_hash_data.get('pendEffect')
+                                tmp_card.card_text = card_hash_data.get('effectText')
+                            elif card_hash_data.get('desc') != None:
+                                pattern = r"\[ Pendulum Effect \](.*?)\[ Monster Effect \](.*?)$"
+                                matches = re.search(pattern, card_hash_data.get('desc'), re.DOTALL)
+                                if matches:
+                                    tmp_card.pend_effect = matches.group(1).replace('\n', '').replace('\r', '')
+                                    if '\n' in matches.group(2):
+                                        tmp_card.summoning_condition = matches.group(2).split('\n')[0].replace('\r', '')
+                                        tmp_card.card_text = matches.group(2).split('\n')[1]
+                                    else:
+                                        tmp_card.card_text = matches.group(2).replace('\r', '').replace('\n', '')
+                        elif card_hash_data.get('desc') != None:
+                            if '\n' in card_hash_data.get('desc'):
+                                tmp_card.summoning_condition = card_hash_data.get('desc').split('\n')[0].replace('\r', '')
+                                tmp_card.card_text = card_hash_data.get('desc').split('\n')[1].replace('\n', '').replace('\r', '')
+                            else:
+                                tmp_card.card_text = card_hash_data.get('desc').replace('\n', '').replace('\r', '')
+
+                        if card_hash_data.get('properties') != None:
+                            tmp_card.type = '/'.join(card_hash_data.get('properties'))
+                        else:
+                            tmp_card.type = f"[{card_hash_data.get('race')}/{card_hash_data.get('frameType')}]"
+                        if card_hash_data.get('atk') != None:
+                            tmp_card.attack = card_hash_data.get('atk')
+                        if card_hash_data.get('def') != None:
+                            tmp_card.defense = card_hash_data.get('def')
+                        if card_hash_data.get('effectText') != None and '\n' in card_hash_data.get('effectText'):
+                            tmp_card.summoning_condition = card_hash_data.get('effectText').split('\n')[0]
+
 
                     # Use the konami code to find other information in ygoprodeck api
-                    en_hashmap_data = card_en_id_hashmap.get(card_hash_data.get('id'))
+                    en_hashmap_data = card_en_id_hashmap.get(card_hash_data.get('misc_info')[0].get('konami_id'))
                     if en_hashmap_data != None:
                         if en_hashmap_data.get('name') != None:
                             tmp_card.card_passcode = en_hashmap_data.get('id')
                         english_name = en_hashmap_data.get('name')
                     else:
-                        scrape_additional_data = True
-
+                        process_english_name = True
                 else:
-                    scrape_additional_data = True
+                    process_english_name = True
 
-                if scrape_additional_data == True:
+                if process_english_name == True:
+
                     if language_code != "en":
                         link_value_struct = card_info.find_all("input", class_="link_value")
                         link_value = link_value_struct[0].attrs['value']
@@ -167,7 +215,6 @@ if __name__ == "__main__":
 
                     else:
                         english_name = tmp_card.name
-
 
                     attribute = card_info.find_all("span", class_="box_card_attribute")
                     attribute = helpers.cleanStr(attribute[0].text, [("\n", "")])
@@ -242,86 +289,90 @@ if __name__ == "__main__":
                     tmp_card.card_text = card_text
 
                 # Grab additional Card information from the wiki
-                processed_card_name = helpers.process_english_name(english_name)
-                debug_url = wiki_URL + processed_card_name
-                card_url = requests_session.get(wiki_URL + processed_card_name)  # Request the URL containing the card lists
-                if card_url.status_code != 200:
-                    print(f"error occured for card {tmp_card.name} : {english_name}: url: {debug_url}")
-                soup_deck = BeautifulSoup(card_url.content, "html.parser")  # Pass through html parser
-                ind_card_elements = soup_deck.find_all("tr", class_="cardtablerow")  # Find all card structures
 
-                if card_url.status_code == 200 and len(ind_card_elements) == 0:
-                    # We'll try specifying (card) in the name
-                    card_url = requests_session.get(wiki_URL + processed_card_name + "_(card)")  # Request the URL containing the card lists
+                extra_info_time_start = time.time()
+                if scrape_additional_data:
+                    processed_card_name = helpers.process_english_name(english_name)
+                    debug_url = wiki_URL + processed_card_name
+                    card_url = requests_session.get(wiki_URL + processed_card_name)  # Request the URL containing the card lists
+                    if card_url.status_code != 200:
+                        print(f"error occured for card {tmp_card.name} : {english_name}: url: {debug_url}")
                     soup_deck = BeautifulSoup(card_url.content, "html.parser")  # Pass through html parser
                     ind_card_elements = soup_deck.find_all("tr", class_="cardtablerow")  # Find all card structures
-                    if len(ind_card_elements) == 0:
-                        print(f"error occured for card {tmp_card.name} : {english_name} - failed with (card): url: {debug_url}")
 
-                for ind_card_info in ind_card_elements:
+                    if card_url.status_code == 200 and len(ind_card_elements) == 0:
+                        # We'll try specifying (card) in the name
+                        card_url = requests_session.get(wiki_URL + processed_card_name + "_(card)")  # Request the URL containing the card lists
+                        soup_deck = BeautifulSoup(card_url.content, "html.parser")  # Pass through html parser
+                        ind_card_elements = soup_deck.find_all("tr", class_="cardtablerow")  # Find all card structures
+                        if len(ind_card_elements) == 0:
+                            print(f"error occured for card {tmp_card.name} : {english_name} - failed with (card): url: {debug_url}")
 
-                    if re.search('Passcode', ind_card_info.text):
-                        lists = ind_card_info.find_all("td", class_="cardtablerowdata")
-                        if len(lists) != 0:
-                            passcode = lists[0]
-                            tmp_card.card_passcode = helpers.cleanStr(passcode.text, [("\n", ""), ("\t", ""), ("\r", "")])
+                    for ind_card_info in ind_card_elements:
 
+                        if re.search('Passcode', ind_card_info.text):
+                            lists = ind_card_info.find_all("td", class_="cardtablerowdata")
+                            if len(lists) != 0:
+                                passcode = lists[0]
+                                tmp_card.card_passcode = helpers.cleanStr(passcode.text, [("\n", ""), ("\t", ""), ("\r", "")])
 
-                    if re.search('Link Arrows', ind_card_info.text):
-                        lists = ind_card_info.find_all("td", class_="cardtablerowdata")
-                        if len(lists) != 0:
-                            card_arrows = lists[0]
-                            arrows = []
-                            for arrow in card_arrows:
-                                if not isinstance(arrow, NavigableString) and arrow.text != '':
-                                    arrows.append(arrow.text)
-                            tmp_card.link_arrows = arrows
+                        if re.search('Link Arrows', ind_card_info.text):
+                            lists = ind_card_info.find_all("td", class_="cardtablerowdata")
+                            if len(lists) != 0:
+                                card_arrows = lists[0]
+                                arrows = []
+                                for arrow in card_arrows:
+                                    if not isinstance(arrow, NavigableString) and arrow.text != '':
+                                        arrows.append(arrow.text)
+                                tmp_card.link_arrows = arrows
 
-                    if re.search('Card effect types', ind_card_info.text):
-                        lists = ind_card_info.find_all("td", class_="cardtablerowdata")
-                        if len(lists) != 0:
-                            card_effect_types = lists[0]
-                            effect_types = []
-                            for effect_type in card_effect_types:
-                                if not isinstance(effect_type, NavigableString) and effect_type.text != '\n':
-                                    for effect in effect_type:
-                                        if effect.text not in effect_types and not re.search('\n', effect.text):
-                                            effect_types.append(effect.text)
-                            tmp_card.effect_types = effect_types
+                        if re.search('Card effect types', ind_card_info.text):
+                            lists = ind_card_info.find_all("td", class_="cardtablerowdata")
+                            if len(lists) != 0:
+                                card_effect_types = lists[0]
+                                effect_types = []
+                                for effect_type in card_effect_types:
+                                    if not isinstance(effect_type, NavigableString) and effect_type.text != '\n':
+                                        for effect in effect_type:
+                                            if effect.text not in effect_types and not re.search('\n', effect.text):
+                                                effect_types.append(effect.text)
+                                tmp_card.effect_types = effect_types
 
-                    if re.search('Statuses', ind_card_info.text):
-                        lists = ind_card_info.find_all("td", class_="cardtablerowdata")
-                        if len(lists) != 0:
-                            card_status = lists[0]
-                            tmp_card.card_status = helpers.cleanStr(card_status.text, [(" ", "")])
+                        if re.search('Statuses', ind_card_info.text):
+                            lists = ind_card_info.find_all("td", class_="cardtablerowdata")
+                            if len(lists) != 0:
+                                card_status = lists[0]
+                                tmp_card.card_status = helpers.cleanStr(card_status.text, [(" ", "")])
 
-                    if re.search('Card search categories', ind_card_info.text):
-                        lists = ind_card_info.find_all("div", class_="hlist")
-                        for row_list in lists:
-                            if re.search('Supports', row_list.text):
-                                card_supports = []
-                                card_search_categories = row_list.contents[1]
-                                for support in card_search_categories:
-                                    if not '\n' in support.text and support.text != 'Supports ':
-                                        card_supports.append(support.text)
-                                tmp_card.card_supports = card_supports
+                        if re.search('Card search categories', ind_card_info.text):
+                            lists = ind_card_info.find_all("div", class_="hlist")
+                            for row_list in lists:
+                                if re.search('Supports', row_list.text):
+                                    card_supports = []
+                                    card_search_categories = row_list.contents[1]
+                                    for support in card_search_categories:
+                                        if not '\n' in support.text and support.text != 'Supports ':
+                                            card_supports.append(support.text)
+                                    tmp_card.card_supports = card_supports
 
-                            if re.search('Anti-supports', row_list.text):
-                                card_anti_supports = []
-                                card_search_categories = row_list.contents[1]
-                                for anti_support in card_search_categories:
-                                    if not '\n' in anti_support.text and anti_support.text != 'Anti-supports ':
-                                        card_anti_supports.append(anti_support.text)
-                                tmp_card.card_anti_supports = card_anti_supports
+                                if re.search('Anti-supports', row_list.text):
+                                    card_anti_supports = []
+                                    card_search_categories = row_list.contents[1]
+                                    for anti_support in card_search_categories:
+                                        if not '\n' in anti_support.text and anti_support.text != 'Anti-supports ':
+                                            card_anti_supports.append(anti_support.text)
+                                    tmp_card.card_anti_supports = card_anti_supports
 
-                            if re.search('Actions', row_list.text):
-                                card_actions = []
-                                card_search_categories = row_list.contents[1]
-                                for action in card_search_categories:
-                                    if not re.search('\n', action.text) and action.text != 'Actions ':
-                                        card_actions.append(action.text)
-                                tmp_card.card_actions = card_actions
+                                if re.search('Actions', row_list.text):
+                                    card_actions = []
+                                    card_search_categories = row_list.contents[1]
+                                    for action in card_search_categories:
+                                        if not re.search('\n', action.text) and action.text != 'Actions ':
+                                            card_actions.append(action.text)
+                                    tmp_card.card_actions = card_actions
 
+                card_end_time = time.time()
+                #print(f"Card Process Time: {card_end_time - card_start_time} - Extra Info Time: {card_end_time - extra_info_time_start}")
                 bar.text = f'-> Processing pack: {pack_name}, {tmp_card.name}'
 
 
