@@ -21,11 +21,18 @@ A snippet of a single file in excel (delimited using the $ character - this can 
 
 ![](./img/excel_output.PNG)
 
+## Fast Option
+You can skip additional information (card_supports, card_anti_supports, card_actions, effect_types, status) by enabling the Fast option. This information is retrieved on a secondary website (yugioh wiki) and can make the scraping significantly longer.
+
+```
+python main.py -f
+```
+
 ## Language Support
 language support is an experimental feature that has been added to specify language of output. Languages include English, French, Deutsch, Italian, Spanish, Portuguese, and can be specified as follows:
 
 ```
-python main.py --language fr # Accepts the following {en,fr,de,it,es,pt}
+python main.py --language fr # Accepts the following {en,fr,de,it,es,pt,ko,ja}
 ```
 ![](./img/csv_files_fr.PNG)
 
