@@ -2,6 +2,7 @@
 
 class Card:
     def __init__(self):
+        self.id = ""
         self.name = ""
         self.attribute = ""
         self.link = ""
@@ -22,9 +23,12 @@ class Card:
         self.card_passcode = ""
         self.effect_types = ""
         self.card_status = ""
+        self.race = ""
+        self.archetype = ""
 
 
     def clear(self):
+        self.id = ""
         self.name = ""
         self.attribute = ""
         self.link = ""
@@ -45,3 +49,5 @@ class Card:
         self.card_passcode = ""
         self.effect_types = ""
         self.card_status = ""
+        self.race = ""
+        self.archetype = ""
