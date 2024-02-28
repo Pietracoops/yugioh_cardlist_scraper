@@ -108,9 +108,10 @@ if __name__ == "__main__":
                 if name[0].text in processed_card_database:
                     list_of_cards.append(copy.copy(processed_card_database[name[0].text]))
                     continue
-
-                if name[0].text == "Armed Neos":
-                    print("e")
+                
+                # #Uncomment this code if you need to debug a certain card
+                # if name[0].text == "Violet Crystal":
+                #     print("e")
 
                 card_start_time = time.time()
 
@@ -133,6 +134,7 @@ if __name__ == "__main__":
                             tmp_card.spell_attribute = card_hash_data.get('localizedProperty')
                         elif card_hash_data.get('race') != None:
                             tmp_card.spell_attribute = card_hash_data.get('race')
+                        tmp_card.card_text = card_hash_data.get('desc').replace('\r\n', ' ')
                     else: # It's a monster
                         if card_hash_data.get('level') != None:
                             tmp_card.level = card_hash_data.get('level')
