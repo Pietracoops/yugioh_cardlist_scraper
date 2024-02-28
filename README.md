@@ -3,7 +3,7 @@ This is a very simple python script that is used to scrape the KONAMI website to
 
 ## Setup
 
-This script was programmed using `Python 3.7`. The repository comes with a `requirements.txt` file that can be used to install all dependencies. Installation can be done using the following command.
+This script was programmed using `Python 3.8.10`, be sure to use the same version. You can run the `setup.bat` file to create your virtual environment (on windows) and install all dependencies. If not, the repository comes with a `requirements.txt` file that can be used to install all dependencies with your own virtual environment solution on any platform. Installation can be done using the following command.
 
 ```
 pip install -r requirements.txt

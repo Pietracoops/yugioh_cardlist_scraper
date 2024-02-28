@@ -145,6 +145,7 @@ if __name__ == "__main__":
                         if card_hash_data.get('linkArrows') != None:
                             tmp_card.link_arrows = '/'.join(
                                 [link_dict[int(key)] for key in card_hash_data.get('linkArrows')])
+                            tmp_card.link_arrows = tmp_card.link_arrows.split('/')
                         elif card_hash_data.get('linkmarkers') != None:
                             tmp_card.link_arrows = card_hash_data.get('linkmarkers')
                         if card_hash_data.get('pendScale') != None:
@@ -186,7 +187,11 @@ if __name__ == "__main__":
 
 
                     # Use the konami code to find other information in ygoprodeck api
-                    en_hashmap_data = card_en_id_hashmap.get(card_hash_data.get('misc_info')[0].get('konami_id'))
+                    try:
+                        en_hashmap_data = card_en_id_hashmap.get(card_hash_data.get('misc_info')[0].get('konami_id'))
+                    except:
+                        en_hashmap_data = None
+
                     if en_hashmap_data != None:
                         if en_hashmap_data.get('name') != None:
                             tmp_card.card_passcode = en_hashmap_data.get('id')
