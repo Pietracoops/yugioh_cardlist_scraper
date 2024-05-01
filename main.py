@@ -134,7 +134,10 @@ if __name__ == "__main__":
                             tmp_card.spell_attribute = card_hash_data.get('localizedProperty')
                         elif card_hash_data.get('race') != None:
                             tmp_card.spell_attribute = card_hash_data.get('race')
-                        tmp_card.card_text = card_hash_data.get('desc').replace('\r\n', ' ')
+                        if card_hash_data.get('desc') != None:
+                            tmp_card.card_text = card_hash_data.get('desc').replace('\r\n', ' ')
+                        else:
+                            tmp_card.card_text = card_hash_data.get('effectText').replace('\r\n', ' ')
                     else: # It's a monster
                         if card_hash_data.get('level') != None:
                             tmp_card.level = card_hash_data.get('level')
