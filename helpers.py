@@ -224,7 +224,7 @@ def get_card_elements(base_URL, element, language_code, requests_session):
     deck_url = requests_session.get(base_URL + deck_info_link + f"&request_locale={language_code}")
     raw_url = base_URL + deck_info_link + f"&request_locale={language_code}"
     soup_deck = BeautifulSoup(deck_url.content, "html.parser")  # Pass through html parser
-    card_elements = soup_deck.find_all("div", class_="t_row c_normal")  # Find all card structures
+    card_elements = soup_deck.find_all("div", class_="t_row c_normal open")  # Find all card structures
     return card_elements, raw_url
 
 def get_pack_name(pack_names, count):

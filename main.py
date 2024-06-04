@@ -59,7 +59,7 @@ if __name__ == "__main__":
     output_path = pathlib.PurePath(script_dir, "data", language_code)
     wiki_URL = "https://yugioh.fandom.com/wiki/"
     base_URL = "https://www.db.yugioh-card.com"
-    URL = f"https://www.db.yugioh-card.com/yugiohdb/card_list.action?request_locale={language_code}"
+    URL = f"https://www.db.yugioh-card.com/yugiohdb/card_list.action??clm=1&wname=CardSearch&request_locale={language_code}"
 
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
 
@@ -110,7 +110,7 @@ if __name__ == "__main__":
                     continue
                 
                 # #Uncomment this code if you need to debug a certain card
-                # if name[0].text == "Violet Crystal":
+                # if name[0].text == "Enemy Controller":
                 #     print("e")
 
                 card_start_time = time.time()
@@ -135,9 +135,9 @@ if __name__ == "__main__":
                         elif card_hash_data.get('race') != None:
                             tmp_card.spell_attribute = card_hash_data.get('race')
                         if card_hash_data.get('desc') != None:
-                            tmp_card.card_text = card_hash_data.get('desc').replace('\r\n', ' ')
+                            tmp_card.card_text = card_hash_data.get('desc').replace('\r\n', ' ').replace('\n', ' ')
                         else:
-                            tmp_card.card_text = card_hash_data.get('effectText').replace('\r\n', ' ')
+                            tmp_card.card_text = card_hash_data.get('effectText').replace('\r\n', ' ').replace('\n', ' ')
                     else: # It's a monster
                         if card_hash_data.get('level') != None:
                             tmp_card.level = card_hash_data.get('level')
