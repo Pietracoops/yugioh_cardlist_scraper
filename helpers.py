@@ -25,7 +25,7 @@ def combine_json_files(file_pattern, language_code, id):
 
     if language_code == "en" or language_code == "fr" or language_code == "de" or language_code == "it" or language_code == "pt":
         if language_code != "en":
-            ygo_pro_api = fetch_json_data(f'https://db.ygoprodeck.com/api/v7/cardinfo.php??misc=yes&language={language_code}')
+            ygo_pro_api = fetch_json_data(f'https://db.ygoprodeck.com/api/v7/cardinfo.php?misc=yes&language={language_code}')
         else:
             ygo_pro_api = fetch_json_data(f'https://db.ygoprodeck.com/api/v7/cardinfo.php?misc=yes')
         #output_hashmap = {item['misc_info'][0]['konami_id']: item for item in ygo_pro_api['data']}
