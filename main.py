@@ -103,7 +103,7 @@ if __name__ == "__main__":
                 card_count += 1
                 tmp_card = card_structure.Card()
                 name = card_info.find_all("span", class_="card_name")
-                tmp_card.name = name[0].text
+                tmp_card.name = helpers.cleanStr(name[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
 
                 if name[0].text in processed_card_database:
                     list_of_cards.append(copy.copy(processed_card_database[name[0].text]))
