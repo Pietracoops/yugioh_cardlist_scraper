@@ -1,6 +1,10 @@
 # YUGIOH Database Cardlist Scraper
 This is a very simple python script that is used to scrape the KONAMI, yugioh wiki, and yugipedia websites to acquire a complete list of all yugioh cards (and their respective card information) into csv files. This can serve as a great tool for developers interested in the yugioh domain.
 
+If you are pressed for time you can grab the latest english scraping from the releases on github:
+
+en.zip contains the csv files while the yugioh_card_database.json contains all recently scraped card information in json format.
+
 ## Setup
 
 This script was programmed using `Python 3.8.10`. You can run the `setup.bat` file to create your virtual environment (on windows) and install all dependencies. If not, the repository comes with a `requirements.txt` file that can be used to install all dependencies with your own virtual environment solution on any platform. Installation can be done using the following command.
