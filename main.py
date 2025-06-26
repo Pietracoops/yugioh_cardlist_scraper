@@ -32,6 +32,7 @@ if __name__ == "__main__":
                         default="en",
                         help="Select the generation language")
     parser.add_argument("-f", "--fast", action='store_true', default=False)
+    parser.add_argument("-db", "--local_database", action='store_true', default=False)
 
     args = parser.parse_args()
     ###########################
@@ -40,6 +41,9 @@ if __name__ == "__main__":
     
     # Check Platform
     helpers.check_platform()
+
+    # Load our generated JSON database into memory to reduce scrapes
+    local_card_db = helpers.load_local_database("yugioh_card_database.json")
 
     # Clone the yugioh-card-history git
     repository_url = 'https://github.com/db-ygorganization-com/yugioh-card-history.git'
@@ -58,6 +62,7 @@ if __name__ == "__main__":
     delimiter = '$'
     output_path = pathlib.PurePath(script_dir, "data", language_code)
     wiki_URL = "https://yugioh.fandom.com/wiki/"
+    yugipedia_URL = "https://yugipedia.com/wiki/"
     base_URL = "https://www.db.yugioh-card.com"
     URL = f"https://www.db.yugioh-card.com/yugiohdb/card_list.action??clm=1&wname=CardSearch&request_locale={language_code}"
 
@@ -103,10 +108,22 @@ if __name__ == "__main__":
                 card_count += 1
                 tmp_card = card_structure.Card()
                 name = card_info.find_all("span", class_="card_name")
-                tmp_card.name = helpers.cleanStr(name[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+                card_name_text = helpers.cleanStr(name[0].text, [("\n", ""), ("\t", ""), ("\r", "")])
+                tmp_card.name = card_name_text
 
-                if name[0].text in processed_card_database:
-                    list_of_cards.append(copy.copy(processed_card_database[name[0].text]))
+                if args.local_database:
+                    if card_name_text in local_card_db:
+                        bar.text = f'-> Found in local DB: {card_name_text}'
+                        db_entry = local_card_db[card_name_text]
+                        tmp_card = helpers.populate_card_from_db(tmp_card, db_entry)
+                        
+                        list_of_cards.append(copy.copy(tmp_card))
+                        processed_card_database[card_name_text] = copy.copy(tmp_card) # Also update in-run cache
+                        tmp_card.clear()
+                        continue # Skip to the next card in the pack
+
+                if card_name_text in processed_card_database:
+                    list_of_cards.append(copy.copy(processed_card_database[card_name_text]))
                     continue
                 
                 # #Uncomment this code if you need to debug a certain card
@@ -302,6 +319,7 @@ if __name__ == "__main__":
 
                 extra_info_time_start = time.time()
                 if scrape_additional_data:
+                    # Yugioh Wiki
                     processed_card_name = helpers.process_english_name(english_name)
                     debug_url = wiki_URL + processed_card_name
                     card_url = requests_session.get(wiki_URL + processed_card_name)  # Request the URL containing the card lists
@@ -381,6 +399,54 @@ if __name__ == "__main__":
                                             card_actions.append(action.text)
                                     tmp_card.card_actions = card_actions
 
+
+                    # Yugipedia
+                    processed_card_name = helpers.process_english_name(english_name)
+                    debug_url = yugipedia_URL + processed_card_name
+                    card_url = requests_session.get(yugipedia_URL + processed_card_name)  # Request the URL containing the card lists
+
+                    if card_url.status_code != 200:
+                        print(f"error occured for card {tmp_card.name} : {english_name}: url: {debug_url}")
+                    soup_deck = BeautifulSoup(card_url.content, "html.parser")  # Pass through html parser
+                    card_info = helpers.extract_card_info_yugipedia(soup_deck)
+
+                    card_class = card_info.get('card_type', 'N/A')
+                    if tmp_card.attribute == '':
+                        attribute = card_info.get('attribute', 'N/A')
+
+                    # if tmp_card.level == '':
+                    #     level = card_info.get('level', 'N/A')
+                    
+                    # card_atk, card_def = card_info.get('atk_def', 'N/A').split('/')
+                    # if tmp_card.attack == '':
+                    #     tmp_card.attack = card_atk
+                    # if tmp_card.defense == '':
+                    #     tmp_card.defense = card_def
+                    
+                    if tmp_card.card_passcode == '':
+                        tmp_card.card_passcode = card_info.get('password', 'N/A')
+                    
+                    if tmp_card.type == '':
+                        card_types = card_info.get('types', [])
+                    if tmp_card.effect_types == '':
+                        tmp_card.effect_types = card_info.get('effect_types', [])
+                    tmp_card.card_status = '/'.join(card_info.get('status', []))
+                    tmp_card.other_languages = card_info.get('other_languages', {})
+
+
+                    # print("Other Languages:")
+                    # # Use .items() to get both the language (key) and its details (value)
+                    # for lang, details in card_info.get('other_languages', {}).items():
+                    #     lang_name = details.get('name', 'N/A')
+                    #     lang_text = details.get('text', 'N/A').replace('\n', ' ') # Replace newlines for cleaner printing
+                    #     print(f"  Language: {lang}")
+                    #     print(f"    Name: {lang_name}")
+                    #     # For Japanese, check if a Romaji name exists
+                    #     if 'romaji' in details:
+                    #         print(f"    Romaji: {details['romaji']}")
+                    #     # print(f"    Text: {lang_text[:50]}...") # Print first 50 chars of text
+                    # print("-" * 20)
+                    
                 card_end_time = time.time()
                 #print(f"Card Process Time: {card_end_time - card_start_time} - Extra Info Time: {card_end_time - extra_info_time_start}")
                 bar.text = f'-> Processing pack: {pack_name}, {tmp_card.name}'

@@ -8,6 +8,7 @@ import copy
 import requests
 from card_structure import Card
 from bs4 import BeautifulSoup
+import csv
 
 def fetch_json_data(url):
     response = requests.get(url)
@@ -129,7 +130,16 @@ def apply_name_exceptions(name):
     name = name_checker(name, "B.E.S. Big Core (Updated from: Big Core)", "B.E.S. Big Core")
     name = name_checker(name, "Slime Toad (Updated from: Frog the Jam)", "Slime Toad")
     name = name_checker(name, "Necrolancer the Time-lord (Updated from: Necrolancer the Timelord)", "Necrolancer the Time-lord")
-
+    name = name_checker(name, "Maliss <P> March Hare", "Maliss P March Hare")
+    name = name_checker(name, "Maliss <P> White Rabbit", "Maliss P White Rabbit")
+    name = name_checker(name, "Maliss <P> Chessy Cat", "Maliss P Chessy Cat")
+    name = name_checker(name, "Maliss <P> Dormouse", "Maliss P Dormouse")
+    name = name_checker(name, "Maliss <Q> Red Ransom", "Maliss Q Red Ransom")
+    name = name_checker(name, "Maliss <Q> White Binder", "Maliss Q White Binder")
+    name = name_checker(name, "Maliss <Q> Hearts Crypter", "Maliss Q Hearts Crypter")
+    name = name_checker(name, "Maliss <C> MTP-07", "Maliss C MTP-07")
+    name = name_checker(name, "Maliss <C> GWC-06", "Maliss C GWC-06")
+    name = name_checker(name, "Maliss <C> TB-11", "Maliss C TB-11")
 
     return name
 
@@ -228,7 +238,7 @@ def get_card_elements(base_URL, element, language_code, requests_session):
     # safe_filename = re.sub(r'[\\/*?:"<>|]', "_", deck_info_link) + ".html"
     # with open(safe_filename, "wb") as f:
     #     f.write(deck_url.content)
-    
+
     soup_deck = BeautifulSoup(deck_url.content, "html.parser")  # Pass through html parser
     # card_elements = soup_deck.find_all("div", class_="t_row c_normal open")  # Find all card structures
     card_elements = soup_deck.select("div.t_row.c_normal.open")
@@ -278,6 +288,8 @@ def listToStr(list):
     - str: string
 
     '''
+    if isinstance(list, str):
+        return list
     output_string = ""
     for i in range(0, len(list)):
         if i == 0:
@@ -320,3 +332,191 @@ def outputCSV(filename, card_list, delimiter):
                 f"{listToStr(card.card_anti_supports)}{delimiter}{listToStr(card.card_actions)}{delimiter}"
                 f"{listToStr(card.effect_types)}{delimiter}\n")
     f.close()
+
+def load_local_database(filename="yugioh_card_database.json"):
+    """
+    Loads the aggregated card database from a JSON file.
+    Returns a dictionary of card data or an empty dictionary if not found.
+    """
+    if not os.path.exists(filename):
+        print(f"Warning: Local database '{filename}' not found. Will perform a full scrape.")
+        return {}
+    
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            print(f"Successfully loaded local database from '{filename}'.")
+            return json.load(f)
+    except json.JSONDecodeError:
+        print(f"Error: Could not decode JSON from '{filename}'. File might be corrupt.")
+        return {}
+    except Exception as e:
+        print(f"An error occurred while loading the local database: {e}")
+        return {}
+
+
+def populate_card_from_db(card_obj, db_entry):
+    """
+    Populates a Card structure from a dictionary entry from our local DB,
+    correctly mapping JSON keys to the Card class attributes.
+    """
+    # Map the keys from the JSON file to the Card class attributes.
+    # Use .get() to prevent errors if a key is missing from the JSON entry.
+    card_obj.name = db_entry.get("name", "")
+    card_obj.attribute = db_entry.get("attribute", "")
+    card_obj.link = db_entry.get("link", "")
+    card_obj.link_arrows = db_entry.get("link_arrows", "")
+    card_obj.rank = db_entry.get("rank", "")
+    card_obj.level = db_entry.get("level", "")
+    card_obj.attack = db_entry.get("attack", "")
+    card_obj.defense = db_entry.get("defense", "")
+    card_obj.type = db_entry.get("type", "")
+    card_obj.spell_attribute = db_entry.get("spell_attribute", "")
+    card_obj.summoning_condition = db_entry.get("summoning_condition", "")
+    card_obj.card_text = db_entry.get("card_text", "")
+    card_obj.card_supports = db_entry.get("card_supports", "")
+    card_obj.card_anti_supports = db_entry.get("card_anti_supports", "")
+    card_obj.card_actions = db_entry.get("card_actions", "")
+    card_obj.effect_types = db_entry.get("effect_types", "")
+
+    # Handle attributes with different names between JSON and Card class
+    card_obj.pend_scale = db_entry.get("pendulum_scale", "")
+    card_obj.pend_effect = db_entry.get("pendulum_condition", "")
+    card_obj.card_passcode = db_entry.get("passcode", "")
+    card_obj.card_status = db_entry.get("status", "")
+
+    # Note: 'race', and 'archetype' are not in the base CSV,
+    # so they will remain as their default empty values from the Card's __init__.
+
+    return card_obj
+
+
+def extract_card_info_yugipedia(soup: BeautifulSoup) -> dict:
+    """
+    Extracts detailed information for a Yu-Gi-Oh! card from its Yugipedia page.
+
+    This function parses a BeautifulSoup object of a card's Yugipedia page HTML
+    to retrieve key details like card type, attributes, stats, prices, and
+    translations.
+
+    Args:
+        soup: A BeautifulSoup object containing the parsed HTML of the card page.
+
+    Returns:
+        A dictionary containing the extracted card information. Fields for which
+        no data could be found will be empty (e.g., '', [], {}).
+        The structure of the returned dictionary is as follows:
+        {
+            'card_type': str,
+            'attribute': str,
+            'types': list[str],
+            'level': str,
+            'atk_def': str,
+            'password': str,
+            'effect_types': list[str],
+            'status': list[str],
+            'tcgplayer_prices': list[dict],
+            'other_languages': dict
+        }
+    """
+    # Initialize a dictionary to hold the card data with default empty values.
+    card_data = {
+        'card_type': '',
+        'attribute': '',
+        'types': [],
+        'level': '',
+        'atk_def': '',
+        'password': '',
+        'effect_types': [],
+        'status': [],
+        'tcgplayer_prices': [],
+        'other_languages': {}
+    }
+
+    # --- 1. Extract Main Card Info from the infobox ---
+    try:
+        # # for debugging
+        # with open("fetched_page.html", "w", encoding="utf-8") as f:
+        #     f.write(soup.prettify())
+
+        # The main card details are in a table with the class 'innertable'.
+        info_table = soup.find('table', class_='innertable')
+        if info_table:
+            # Iterate over each row (tr) in the table to find the data.
+            for row in info_table.find_all('tr'):
+                header = row.find('th')
+                value_cell = row.find('td')
+                if not header or not value_cell:
+                    continue
+
+                header_text = header.get_text(strip=True)
+                
+                # Based on the header, extract the corresponding data.
+                if header_text == 'Card type':
+                    card_data['card_type'] = value_cell.get_text(strip=True)
+                elif header_text == 'Attribute':
+                    card_data['attribute'] = value_cell.get_text(strip=True)
+                elif header_text == 'Types':
+                    # Types are separated by ' / ', so we split them into a list.
+                    types_text = value_cell.get_text(strip=True)
+                    card_data['types'] = [t.strip() for t in types_text.split('/')]
+                elif header_text == 'Level':
+                    card_data['level'] = value_cell.get_text(strip=True)
+                elif header_text == 'ATK/DEF':
+                    card_data['atk_def'] = value_cell.get_text(strip=True)
+                elif header_text == 'Password':
+                    card_data['password'] = value_cell.get_text(strip=True)
+                elif header_text == 'Effect types':
+                    # Effect types are in a list, so we get each list item.
+                    card_data['effect_types'] = [li.get_text(strip=True) for li in value_cell.find_all('li')]
+                elif header_text == 'Status':
+                    # Each status is in its own div.
+                    card_data['status'] = [div.get_text(strip=True) for div in value_cell.find_all('div', class_=True)]
+    except Exception:
+        # In case of any error during parsing, we pass and return the defaults.
+        pass
+
+    # --- 3. Extract Other Languages ---
+    try:
+        # Find the "Other languages" section header.
+        lang_header = soup.find('span', class_='mw-headline', id='Other_languages')
+        if lang_header:
+            # The language table is the next sibling of the header's parent (h2).
+            lang_table = lang_header.find_parent('h2').find_next_sibling('table', class_='wikitable')
+            if lang_table:
+                # Use an iterator to handle the special case for Japanese (2 rows).
+                row_iter = iter(lang_table.find('tbody').find_all('tr'))
+                next(row_iter, None)  # Skip the header row of the language table.
+
+                for row in row_iter:
+                    lang_th = row.find('th')
+                    cells = row.find_all('td')
+
+                    if not lang_th or len(cells) < 2:
+                        continue
+                    
+                    lang = lang_th.get_text(strip=True)
+                    name = cells[0].get_text(strip=True)
+                    
+                    # Replace <br> tags with newlines to preserve formatting in card text.
+                    for br in cells[1].find_all('br'):
+                        br.replace_with('\n')
+                    text = cells[1].get_text(strip=False).strip()
+                    
+                    entry = {'name': name, 'text': text}
+
+                    # Handle the special case for Japanese, which has a separate row for Romaji.
+                    if lang == 'Japanese':
+                        # Peek at the next row in the HTML to check for the Romaji name.
+                        next_row = row.find_next_sibling('tr')
+                        if next_row and not next_row.find('th'):
+                            romaji_cell = next_row.find('td', {'lang': 'ja-Latn'})
+                            if romaji_cell:
+                                entry['romaji'] = romaji_cell.get_text(strip=True)
+                                # Consume the Romaji row from our iterator so we don't process it again.
+                                next(row_iter, None)
+                    
+                    card_data['other_languages'][lang] = entry
+    except Exception:
+        pass
+
+    return card_data

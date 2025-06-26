@@ -25,6 +25,7 @@ class Card:
         self.card_status = ""
         self.race = ""
         self.archetype = ""
+        self.other_languages = {}
 
 
     def clear(self):
